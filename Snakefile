@@ -18,8 +18,9 @@ rule all:
         # expand(config['proc']['sam_tag'],
         #        dataset=datasets),
         config['proc']['demux_db'],
-        expand(config['proc']['sam'],
-              dataset=datasets),
+        # expand(config['proc']['sam'],
+        #       dataset=datasets),
+        config['proc']['db']
 
 rule symlink:
     resources:
@@ -113,6 +114,9 @@ rule bam_tag:
 rule talon_init:
     input:
         ref_gtf = config['ref']['gtf']
+    resources:
+        threads = 16,
+        mem_gb = 64
     params:
         build = 'mm10',
         annot_ver = 'vM21',
@@ -132,7 +136,10 @@ rule talon_init:
 
 rule talon_cb_config:
     input:
-        sam_files = expand(config['proc']['sam_tag'], datasets=datasets)
+        sam_files = expand(config['proc']['sam_tag'], dataset=datasets)
+    resources:
+        threads = 1,
+        mem_gb = 1
     params:
         samples = samples,
         platforms = platforms
@@ -145,19 +152,38 @@ rule talon_cb_config:
         cfg_df = pd.DataFrame(data=dumb)
         cfg_df.to_csv(talon_config, sep=',', index=False, header=None)
 
-
 rule talon_config:
+    input:
+        sam_files = expand(config['proc']['sam'], dataset=datasets)
+    params:
+        datasets = datasets,
+        samples = samples,
+        platforms = platforms
+    resources:
+        threads = 1,
+        mem_gb = 1
+    output:
+        talon_config = config['proc']['config']
+    run:
+        dumb = [[d,s,p,f] for d,s,p,f in zip(params.dataset,
+                                         params.samples,
+                                         params.platforms,
+                                         params.sam_files)]
+        cfg_df = pd.DataFrame(data=dumb)
+        cfg_df.to_csv(talon_config, sep=',', index=False, header=None)
+
 
 rule talon_cb:
     resources:
-        threads = 64
+        threads = 32,
+        mem_gb = 256
     shell:
         "talon \
           --f {input.cfg} \
           --cb \
           --db {input.annot_db} \
           --build {params.build} \
-          -t {params.threads} \
+          -t {resources.threads} \
           -c 0.8 \
           --o {output.db}"
 
@@ -170,3 +196,26 @@ use rule talon_cb as talon_demux with:
         opref = config['proc']['demux_db'].replace('.db', '')
     output:
         db = config['proc']['demux_db']
+
+rule talon:
+    resources:
+        threads = 32,
+        mem_gb = 256
+    shell:
+        "talon \
+          --f {input.cfg} \
+          --db {input.annot_db} \
+          --build {params.build} \
+          -t {resources.threads} \
+          -c 0.8 \
+          --o {output.db}"
+
+use rule talon as talon_not_demux with:
+  input:
+      annot_db = config['proc']['init_db'],
+      cfg = config['proc']['config']
+  params:
+      build = 'mm10',
+      opref = config['proc']['db'].replace('.db', '')
+  output:
+      db = config['proc']['db']

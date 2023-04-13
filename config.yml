@@ -13,6 +13,7 @@ proc:
   init_db: proc/demux_talon/ref.db
   sam: proc/map/{dataset}.sam
   db: proc/talon/talon.db
+  config: proc/talon/talon_config.csv
 
 # software
 lr_splitpipe: /dfs8/pub/freese//mortazavi_lab/bin/LR-splitpipe/LR-splitpipe/
