@@ -1,0 +1,2 @@
+proc:
+  fastq: proc/{sample}.fastq.gz
