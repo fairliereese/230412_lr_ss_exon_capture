@@ -1,2 +1,18 @@
+ref:
+  fa: /dfs8/pub/freese/mortazavi_lab/ref/mm10/mm10_sirv4.fasta
+  gtf: /dfs8/pub/freese/mortazavi_lab/data/mousewg/refs/gencode_vM21.gtf
+
 proc:
-  fastq: proc/{sample}.fastq.gz
+  fastq: proc/{dataset}.fastq.gz
+  demux_fastq: proc/demux/{dataset}.fastq
+  demux_sam: proc/demux_bam/{dataset}.sam
+  demux_db: proc/demux_talon/talon.db
+  demux_config: proc/demux_talon/talon_config.csv
+  sam_tag: proc/tag_bam/{dataset}_tagged.sam
+
+  init_db: proc/demux_talon/ref.db
+  sam: proc/map/{dataset}.sam
+  db: proc/talon/talon.db
+
+# software
+lr_splitpipe: /dfs8/pub/freese//mortazavi_lab/bin/LR-splitpipe/LR-splitpipe/
