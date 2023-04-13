@@ -8,7 +8,7 @@ proc:
   demux_sam: proc/demux_bam/{dataset}.sam
   demux_db: proc/demux_talon/talon.db
   demux_config: proc/demux_talon/talon_config.csv
-  sam_tag: proc/tag_bam/{dataset}_tagged.sam
+  sam_tag: proc/tag_bam/{dataset}_tagged_merged_primers.sam
 
   init_db: proc/demux_talon/ref.db
   sam: proc/map/{dataset}.sam

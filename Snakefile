@@ -17,7 +17,7 @@ rule all:
     input:
         # expand(config['proc']['sam_tag'],
         #        dataset=datasets),
-        config['proc']['demux_db'],
+        # config['proc']['demux_db'],
         # expand(config['proc']['sam'],
         #       dataset=datasets),
         config['proc']['db']
@@ -45,12 +45,12 @@ rule demux:
       threads = 4
   params:
       d = config['lr_splitpipe'],
-      opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
+      opref = config['proc']['demux_fastq'].rsplit('.fastq', maxsplit=1)[0]
   shell: """python {params.d}demultiplex.py all \
       -f {input.fq} \
       -o {params.opref} \
       -t {resources.threads} \
-      -k WT_mega \
+      -k WT \
       --l1_mm 4 \
       --l2_mm 4 \
       --max_read_len 10000 \
@@ -68,11 +68,13 @@ rule map:
     threads = 32,
     mem_gb = 64
   shell:
-      'minimap2 --MD \
+      """
+      module load minimap2
+      minimap2 --MD \
      			-t {resources.threads} \
      			-ax splice \
      			-k14 \
-     		    {input.ref_fa} {input.fastq} > {output.sam}'
+     		    {input.ref_fa} {input.fastq} > {output.sam}"""
 
 use rule map as map_demux with:
     input:
@@ -103,10 +105,10 @@ rule bam_tag:
     shell:
         """python {params.d}add_bam_tag.py \
             -s {input.sam} \
-            -k WT_mega \
+            -k WT \
             --merge_primers \
             --suffix {wildcards.dataset} \
-            -o
+            -o {params.opref}
         """
 
 # talon - versions w/ and w/o demux just to get things
@@ -148,9 +150,9 @@ rule talon_cb_config:
     run:
         dumb = [[s,p,f] for s,p,f in zip(params.samples,
                                          params.platforms,
-                                         params.sam_files)]
+                                         input.sam_files)]
         cfg_df = pd.DataFrame(data=dumb)
-        cfg_df.to_csv(talon_config, sep=',', index=False, header=None)
+        cfg_df.to_csv(output.talon_config, sep=',', index=False, header=None)
 
 rule talon_config:
     input:
@@ -165,12 +167,12 @@ rule talon_config:
     output:
         talon_config = config['proc']['config']
     run:
-        dumb = [[d,s,p,f] for d,s,p,f in zip(params.dataset,
+        dumb = [[d,s,p,f] for d,s,p,f in zip(params.datasets,
                                          params.samples,
                                          params.platforms,
-                                         params.sam_files)]
+                                         input.sam_files)]
         cfg_df = pd.DataFrame(data=dumb)
-        cfg_df.to_csv(talon_config, sep=',', index=False, header=None)
+        cfg_df.to_csv(output.talon_config, sep=',', index=False, header=None)
 
 
 rule talon_cb:
@@ -185,7 +187,8 @@ rule talon_cb:
           --build {params.build} \
           -t {resources.threads} \
           -c 0.8 \
-          --o {output.db}"
+          --o {output.db} \
+          --tmpDir {params.opref}_tmp"
 
 use rule talon_cb as talon_demux with:
     input:
@@ -208,7 +211,8 @@ rule talon:
           --build {params.build} \
           -t {resources.threads} \
           -c 0.8 \
-          --o {output.db}"
+          --o {output.db} \
+          --tmpDir {params.opref}_tmp"
 
 use rule talon as talon_not_demux with:
   input:
