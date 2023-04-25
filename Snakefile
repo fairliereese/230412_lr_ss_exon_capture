@@ -17,10 +17,10 @@ rule all:
     input:
         # expand(config['proc']['sam_tag'],
         #        dataset=datasets),
-        # config['proc']['demux_db'],
+        config['proc']['demux_db'],
         # expand(config['proc']['sam'],
         #       dataset=datasets),
-        config['proc']['db']
+        # config['proc']['db']
 
 rule symlink:
     resources:
@@ -51,6 +51,7 @@ rule demux:
       -o {params.opref} \
       -t {resources.threads} \
       -k WT \
+      -c v2 \
       --l1_mm 4 \
       --l2_mm 4 \
       --max_read_len 10000 \
@@ -180,15 +181,24 @@ rule talon_cb:
         threads = 32,
         mem_gb = 256
     shell:
-        "talon \
+        """
+        # copy the input db so that a copy of it will remain unmodified
+        cp {input.annot_db} _{input.annot_db}
+
+        talon \
           --f {input.cfg} \
           --cb \
           --db {input.annot_db} \
           --build {params.build} \
           -t {resources.threads} \
           -c 0.8 \
-          --o {output.db} \
-          --tmpDir {params.opref}_tmp"
+          --o {params.opref} \
+          --tmpDir {params.opref}_tmp
+
+          # mv the output db with annotations
+          # and restore the annot db
+          mv {input.annot_db} {output.db}
+          mv _{input.annot_db} {input.annot_db}"""
 
 use rule talon_cb as talon_demux with:
     input:
@@ -205,14 +215,24 @@ rule talon:
         threads = 32,
         mem_gb = 256
     shell:
-        "talon \
+        """
+        # copy the input db so that a copy of it will remain unmodified
+        cp {input.annot_db} _{input.annot_db}
+
+        talon \
           --f {input.cfg} \
           --db {input.annot_db} \
           --build {params.build} \
           -t {resources.threads} \
           -c 0.8 \
-          --o {output.db} \
-          --tmpDir {params.opref}_tmp"
+          --o {params.opref} \
+          --tmpDir {params.opref}_tmp
+
+        # mv the output db with annotations
+        # and restore the annot db
+        mv {input.annot_db} {output.db}
+        mv _{input.annot_db} {input.annot_db}
+          """
 
 use rule talon as talon_not_demux with:
   input:
