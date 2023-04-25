@@ -45,7 +45,7 @@ rule demux:
       threads = 4
   params:
       d = config['lr_splitpipe'],
-      opref = config['proc']['demux_fastq'].rsplit('.fastq', maxsplit=1)[0]
+      opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
   shell: """python {params.d}demultiplex.py all \
       -f {input.fq} \
       -o {params.opref} \
@@ -61,13 +61,12 @@ rule demux:
       --delete_input
   """
 
-  # mapping - versions w/ and w/o demux just to get things
-  # started a lil earlier
-
+# mapping - versions w/ and w/o demux just to get things
+# started a lil earlier
 rule map:
   resources:
-    threads = 32,
-    mem_gb = 64
+    threads = 16,
+    mem_gb = 32
   shell:
       """
       module load minimap2
@@ -107,6 +106,7 @@ rule bam_tag:
         """python {params.d}add_bam_tag.py \
             -s {input.sam} \
             -k WT \
+            -c v2 \
             --merge_primers \
             --suffix {wildcards.dataset} \
             -o {params.opref}
