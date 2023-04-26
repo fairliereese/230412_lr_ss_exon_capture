@@ -22,7 +22,7 @@ proc:
   sam_tag: proc/tag_bam/{dataset}_merged_primers.sam
 
   # talon
-  sam_label: data/{batch}/talon/{dataset}_labeled.sam
+  sam_label: data/talon/{dataset}_labeled.sam
   demux_config: proc/demux_talon/talon_config.csv
   init_db: proc/demux_talon/ref.db
   demux_db: proc/demux_talon/talon.db
