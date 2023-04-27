@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import sys
+import re
 
 p = os.path.dirname(os.getcwd())
 sys.path.append(p)
@@ -9,7 +10,7 @@ from utils import *
 
 configfile: 'config.yml'
 
-df = pd.read_csv('config.tsv', '\t')
+df = pd.read_csv('config.tsv', sep='\t')
 
 def get_df_col(wc, df, col):
     val = df.loc[df.dataset==wc.dataset, col].values[0]
@@ -20,14 +21,19 @@ samples = df['sample'].tolist()
 datasets = df['dataset'].tolist()
 platforms = df['platform'].tolist()
 
+wildcard_constraints:
+    dataset= '|'.join([re.escape(x) for x in datasets])
+
 rule all:
     input:
         # expand(config['proc']['sam_tag'],
         #        dataset=datasets),
-        config['proc']['demux_db'],
-        # expand(config['proc']['sam'],
-        #       dataset=datasets),
-        # config['proc']['db']
+        # config['proc']['demux_db'],
+        expand(config['proc']['map_stats'],
+              dataset=datasets),
+        expand(config['proc']['tc_stats'],
+              dataset=datasets),
+        config['proc']['adata']
 
 rule symlink:
     resources:
@@ -156,22 +162,24 @@ rule tc:
             -t {resources.threads} \
             --sam {input.sam} \
             --genome {input.fa} \
+            --correctIndels \
             --canonOnly \
             --primaryOnly \
             --deleteTmp \
             --tmpDir {params.opref}_temp/ \
-            --outprefix {params.opref}
+            --outprefix {params.opref} 2> {output.log}
         """
 
 use rule tc as tc_sam with:
     input:
-        sam = config['proc']['sam_rev'],
+        sam = config['proc']['sam'],
         fa = config['ref']['fa']
     params:
         tc = config['tc_path'],
         opref = config['proc']['sam_clean'].rsplit('_clean.sam', maxsplit=1)[0]
     output:
-        sam = config['proc']['sam_clean']
+        sam = config['proc']['sam_clean'],
+        log = config['proc']['tc_log']
 
 use rule alignment_stats as tc_stats with:
     input:
@@ -305,31 +313,31 @@ use rule talon_cb as talon_demux with:
     output:
         db = config['proc']['demux_db']
 
-rule talon_filt:
-  input:
-      db = config['proc']['demux_db']
-  resources:
-      threads = 1,
-      mem_gb = 32
-  params:
-      annot = 'vM21'
-  output:
-      list = config['proc']['filt_list']
-  shell:
-      """
-      talon_filter_transcripts \
-          --db {input.db} \
-          -a {params.annot} \
-          --maxFracA=0.5 \
-          --minCount=1 \
-          --minDatasets=4 \
-          --o {output.list}
-      """
+# rule talon_filt:
+#   input:
+#       db = config['proc']['demux_db']
+#   resources:
+#       threads = 1,
+#       mem_gb = 32
+#   params:
+#       annot = 'vM21'
+#   output:
+#       list = config['proc']['filt_list']
+#   shell:
+#       """
+#       talon_filter_transcripts \
+#           --db {input.db} \
+#           -a {params.annot} \
+#           --maxFracA=0.5 \
+#           --minCount=1 \
+#           --minDatasets=4 \
+#           --o {output.list}
+#       """
 
 rule talon_adata:
     input:
         db = config['proc']['demux_db'],
-        pass_list = config['proc']['filt_list']
+        # pass_list = config['proc']['filt_list']
     resources:
         threads = 1,
         mem_gb = 32
@@ -342,7 +350,7 @@ rule talon_adata:
         """
         talon_create_adata \
             --db {input.db} \
-            --pass_list {input.pass_list} \
+            # --pass_list {input.pass_list} \
             -a {params.annot} \
             -b {params.build} \
             --o {output.h5ad}

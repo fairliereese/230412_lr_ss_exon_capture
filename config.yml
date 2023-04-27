@@ -11,21 +11,22 @@ proc:
   # minimap
   sam: proc/map/{dataset}.sam
   sam_log: proc/map/{dataset}_minimap.log
-  sam_rev: proc/map/{dataset}.rev.sam
   map_stats: proc/map/{dataset}_map_stats.txt
+  sam_rev: proc/map/{dataset}_rev.sam
 
   # transcriptclean
   sam_clean: proc/tc/{dataset}_clean.sam
+  tc_log: proc/tc/{dataset}_stderr.log
   tc_stats: proc/tc/{dataset}_tc_stats.txt
 
   # add bam tag
   sam_tag: proc/tag_bam/{dataset}_merged_primers.sam
 
   # talon
-  sam_label: data/talon/{dataset}_labeled.sam
-  demux_config: proc/demux_talon/talon_config.csv
-  init_db: proc/demux_talon/ref.db
-  demux_db: proc/demux_talon/talon.db
+  sam_label: proc/talon/{dataset}_labeled.sam
+  demux_config: proc/talon/talon_config.csv
+  init_db: proc/talon/ref.db
+  demux_db: proc/talon/talon.db
   filt_list: proc/talon/talon_filt_list.csv
   adata: proc/talon/talon_adata.h5ad
 

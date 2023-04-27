@@ -1,3 +1,5 @@
+import pysam
+
 def reverse_alignment(infile, outfile, threads=1):
 
     reverse_strand = {0: 16, 16: 0}
@@ -19,6 +21,6 @@ def reverse_alignment(infile, outfile, threads=1):
                 read.flag = reverse_strand[read.flag]
                 read.set_tag('ts', '+')
 
-            output.write(read)
+        output.write(read)
     input.close()
     output.close()
