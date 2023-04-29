@@ -3,39 +3,74 @@ import os
 import sys
 import re
 
-p = os.path.dirname(os.getcwd())
+# p = os.path.dirname(os.getcwd())
+p = os.getcwd()
 sys.path.append(p)
 
 from utils import *
 
 configfile: 'config.yml'
 
-# df = pd.read_csv('config.tsv', sep='\t')
 df = pd.read_csv('230427_config.tsv', sep='\t')
+cols = ['fname', 'sample',
+        'dataset', 'platform',
+        'flowcell']
+for c in cols:
+    df[c] = df[c].astype(str)
+    
+# subset the config df on dataset
+def get_df_dataset(dataset, df):
+    return df.loc[df.dataset==dataset]
 
+# subset the config df on flowcell
+def get_df_flowcell(flowcell, df):
+    return df.loc[df.flowcell==flowcell]
 
-def get_df_col(wc, df, col):
-    val = df.loc[df.dataset==wc.dataset, col].values[0]
-    return val
+# get a 1:1 value for dataset:<col> from config
+def get_df_dataset_val(wc, df, col):
+    temp = get_df_dataset(wc.dataset, df)
+    return temp[col].values[0]
 
-def get_df_whole_col(wc, df, col):
-    vals = df.loc[df.dataset==wc.dataset, col].tolist()
-    return vals
+# get a 1:many value (ie dataset:flowcell, dataset:fname) from config
+def get_df_dataset_col(wc, df, col):
+    temp = get_df_dataset(wc.dataset, df)
+    return temp[col].tolist()
 
-files = df.fname.tolist()
+# get a 1:1 value from flowcell,dataset:<col>
+def get_df_dataset_flowcell_col(wc, df, col):
+    temp = get_df_dataset(wc.dataset, df)
+    temp = get_df_flowcell(wc.flowcell, temp)
+    return temp[col].values[0]
+
+# def get_df_col(wc, df, col):
+#     val = df.loc[df.dataset==wc.dataset, col].values[0]
+#     return val
+#
+# def get_df_whole_col(wc, df, col):
+#     temp = df.loc[df.dataset==wc.dataset]
+#     if flowcell in wc.keys():
+#         temp = df.loc[df.flowcell==wc.flowcell]
+#     vals = temp[col].tolist()
+#     return vals
+
+def get_sublib_bc_files(wc, df, config):
+    sublib_flowcells = get_df_dataset_col(wc, df, 'flowcell')
+    bc_files = expand(config['proc']['demux_bc'],
+                      dataset=wc.dataset,
+                      flowcell=sublib_flowcells)
+    return bc_files
+
+files = df['fname'].tolist()
 samples = df['sample'].tolist()
 datasets = df['dataset'].tolist()
 platforms = df['platform'].tolist()
-flowcell = df['flowcell'].tolist()
+flowcells = df['flowcell'].tolist()
 
 wildcard_constraints:
     dataset= '|'.join([re.escape(x) for x in datasets])
 
 rule all:
     input:
-        # expand(config['proc']['sam_tag'],
-        #        dataset=datasets),
-        # config['proc']['demux_db'],
         expand(config['proc']['map_stats'],
               dataset=datasets),
         expand(config['proc']['sam_rev_stats'],
@@ -44,7 +79,6 @@ rule all:
               dataset=datasets),
         config['proc']['adata'],
         config['proc']['g_adata']
-
 
 rule symlink:
     resources:
@@ -55,7 +89,7 @@ rule symlink:
 
 use rule symlink as sl_fastq with:
     params:
-      fname = lambda wc:get_df_col(wc, df, 'fname')
+      fname = lambda wc:get_df_dataset_flowcell_col(wc, df, 'fname')
     output:
       out = config['proc']['fastq']
 
@@ -101,50 +135,46 @@ rule demux_find_bcs:
   params:
       d = config['lr_splitpipe'],
       opref = config['proc']['demux_bc'].rsplit('_bcs.tsv', maxsplit=1)[0]
-  shell: """python {params.d}demultiplex.py find_bcs \
-      -f {input.fq} \
-      -o {params.opref} \
-      -t {resources.threads} \
-      -k WT \
-      -c v2 \
-      --l1_mm 4 \
-      --l2_mm 4 \
-      --max_read_len 10000 \
-      --max_linker_dist 200 \
-      --chunksize 2000000 \
-      --verbosity 2 \
-      --delete_input
-  """
-
-def get_sublib_bc_files(wc, df, config):
-    sublib_flowcells = get_df_whole_col(wc, df, 'flowcell')
-    bc_files = expand(config['proc']['demux_bc'],
-                      dataset=wc.dataset,
-                      flowcell=sublib_flowcells)
-    bc_files = ','.join(bc_files)
-    return bc_files
+  shell:
+      """python {params.d}demultiplex.py find_bcs \
+          -f {input.fq} \
+          -o {params.opref} \
+          -t {resources.threads} \
+          -k WT \
+          -c v2 \
+          --l1_mm 4 \
+          --l2_mm 4 \
+          --max_read_len 10000 \
+          --max_linker_dist 200 \
+          --chunksize 2000000 \
+          --verbosity 2 \
+          --delete_input
+      """
 
 rule demux_proc_bcs:
     input:
         bc_files = lambda wc: get_sublib_bc_files(wc, df, config)
     output:
-        bc = config['proc']['demux_fastq']
+        fq = config['proc']['demux_fastq']
     resources:
         mem_gb = 32,
         threads = 4
     params:
         d = config['lr_splitpipe'],
-        opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
-    shell: """python {params.d}demultiplex.py process_bcs \
-        -f {input.bc_files} \
-        -o {params.opref} \
-        -t {resources.threads} \
-        -k WT \
-        -c v2 \
-        --chunksize 2000000 \
-        --verbosity 2 \
-        --delete_input
-    """
+        opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0],
+        # fmt_bc_files = ','.join(lambda wc: get_sublib_bc_files(wc, df, config))
+    shell:
+        """
+        python {params.d}demultiplex.py process_bcs \
+            -f {input.bc_files} \
+            -o {params.opref} \
+            -t {resources.threads} \
+            -k WT \
+            -c v2 \
+            --chunksize 2000000 \
+            --verbosity 2 \
+            --delete_input
+        """
 
 ################################################################################
 ################################ Mapping #######################################
