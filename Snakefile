@@ -10,16 +10,23 @@ from utils import *
 
 configfile: 'config.yml'
 
-df = pd.read_csv('config.tsv', sep='\t')
+# df = pd.read_csv('config.tsv', sep='\t')
+df = pd.read_csv('230427_config.tsv', sep='\t')
+
 
 def get_df_col(wc, df, col):
     val = df.loc[df.dataset==wc.dataset, col].values[0]
     return val
 
+def get_df_whole_col(wc, df, col):
+    vals = df.loc[df.dataset==wc.dataset, col].tolist()
+    return vals
+
 files = df.fname.tolist()
 samples = df['sample'].tolist()
 datasets = df['dataset'].tolist()
 platforms = df['platform'].tolist()
+flowcell = df['flowcell'].tolist()
 
 wildcard_constraints:
     dataset= '|'.join([re.escape(x) for x in datasets])
@@ -31,9 +38,13 @@ rule all:
         # config['proc']['demux_db'],
         expand(config['proc']['map_stats'],
               dataset=datasets),
+        expand(config['proc']['sam_rev_stats'],
+              dataset=datasets),
         expand(config['proc']['tc_stats'],
               dataset=datasets),
-        config['proc']['adata']
+        config['proc']['adata'],
+        config['proc']['g_adata']
+
 
 rule symlink:
     resources:
@@ -53,18 +64,44 @@ use rule symlink as sl_fastq with:
 ################################################################################
 
 
-rule demux:
+# rule demux:
+#   input:
+#       fq = config['proc']['fastq']
+#   output:
+#       dx_fq = config['proc']['demux_fastq']
+#   resources:
+#       mem_gb = 32,
+#       threads = 4
+#   params:
+#       d = config['lr_splitpipe'],
+#       opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
+#   shell: """python {params.d}demultiplex.py all \
+#       -f {input.fq} \
+#       -o {params.opref} \
+#       -t {resources.threads} \
+#       -k WT \
+#       -c v2 \
+#       --l1_mm 4 \
+#       --l2_mm 4 \
+#       --max_read_len 10000 \
+#       --max_linker_dist 200 \
+#       --chunksize 2000000 \
+#       --verbosity 2 \
+#       --delete_input
+#   """
+
+rule demux_find_bcs:
   input:
       fq = config['proc']['fastq']
   output:
-      dx_fq = config['proc']['demux_fastq']
+      bc = config['proc']['demux_bc']
   resources:
       mem_gb = 32,
       threads = 4
   params:
       d = config['lr_splitpipe'],
-      opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
-  shell: """python {params.d}demultiplex.py all \
+      opref = config['proc']['demux_bc'].rsplit('_bcs.tsv', maxsplit=1)[0]
+  shell: """python {params.d}demultiplex.py find_bcs \
       -f {input.fq} \
       -o {params.opref} \
       -t {resources.threads} \
@@ -78,6 +115,36 @@ rule demux:
       --verbosity 2 \
       --delete_input
   """
+
+def get_sublib_bc_files(wc, df, config):
+    sublib_flowcells = get_df_whole_col(wc, df, 'flowcell')
+    bc_files = expand(config['proc']['demux_bc'],
+                      dataset=wc.dataset,
+                      flowcell=sublib_flowcells)
+    bc_files = ','.join(bc_files)
+    return bc_files
+
+rule demux_proc_bcs:
+    input:
+        bc_files = lambda wc: get_sublib_bc_files(wc, df, config)
+    output:
+        bc = config['proc']['demux_fastq']
+    resources:
+        mem_gb = 32,
+        threads = 4
+    params:
+        d = config['lr_splitpipe'],
+        opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
+    shell: """python {params.d}demultiplex.py process_bcs \
+        -f {input.bc_files} \
+        -o {params.opref} \
+        -t {resources.threads} \
+        -k WT \
+        -c v2 \
+        --chunksize 2000000 \
+        --verbosity 2 \
+        --delete_input
+    """
 
 ################################################################################
 ################################ Mapping #######################################
@@ -147,6 +214,12 @@ rule rev_alignment:
     run:
         reverse_alignment(input.sam, output.sam_rev, resources.threads)
 
+use rule alignment_stats as rev_sam_stats with:
+    input:
+        alignment = config['proc']['sam_rev']
+    output:
+        stats = config['proc']['sam_rev_stats']
+
 
 ################################################################################
 ############################# TranscriptClean ##################################
@@ -162,7 +235,7 @@ rule tc:
             -t {resources.threads} \
             --sam {input.sam} \
             --genome {input.fa} \
-            --correctIndels \
+            --correctIndels True \
             --canonOnly \
             --primaryOnly \
             --deleteTmp \
@@ -172,7 +245,7 @@ rule tc:
 
 use rule tc as tc_sam with:
     input:
-        sam = config['proc']['sam'],
+        sam = config['proc']['sam_rev'],
         fa = config['ref']['fa']
     params:
         tc = config['tc_path'],
@@ -309,7 +382,7 @@ use rule talon_cb as talon_demux with:
         cfg = config['proc']['demux_config']
     params:
         build = 'mm10',
-        opref = config['proc']['demux_db'].rsplit('_talon', maxsplit=1)[0]
+        opref = config['proc']['demux_db'].rsplit('.db', maxsplit=1)[0]
     output:
         db = config['proc']['demux_db']
 
@@ -350,8 +423,29 @@ rule talon_adata:
         """
         talon_create_adata \
             --db {input.db} \
-            # --pass_list {input.pass_list} \
             -a {params.annot} \
             -b {params.build} \
+            --o {output.h5ad}
+        """
+
+rule talon_gene_adata:
+    input:
+        db = config['proc']['demux_db'],
+        # pass_list = config['proc']['filt_list']
+    resources:
+        threads = 1,
+        mem_gb = 32
+    params:
+        annot = 'vM21',
+        build = 'mm10'
+    output:
+        h5ad = config['proc']['g_adata']
+    shell:
+        """
+        talon_create_adata \
+            --db {input.db} \
+            -a {params.annot} \
+            -b {params.build} \
+            --gene \
             --o {output.h5ad}
         """

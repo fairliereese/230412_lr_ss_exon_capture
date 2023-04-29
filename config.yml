@@ -1,37 +1,38 @@
 ref:
-  fa: /dfs8/pub/freese/mortazavi_lab/ref/mm10/mm10_sirv4.fasta
-  gtf: /dfs8/pub/freese/mortazavi_lab/data/mousewg/refs/gencode_vM21.gtf
+    fa: /dfs8/pub/freese/mortazavi_lab/ref/mm10/mm10_sirv4.fasta
+    gtf: /dfs8/pub/freese/mortazavi_lab/data/mousewg/refs/gencode_vM21.gtf
 
 proc:
-  fastq: proc/{dataset}.fastq.gz
+    fastq: proc/{dataset}.fastq.gz
 
-  # demux
-  demux_fastq: proc/demux/{dataset}_demux.fastq
+    # demux
+    demux_bc: proc/demux/{dataset}_{flowcell}_bcs.tsv
+    demux_fastq: proc/demux/{dataset}_demux.fastq
 
-  # minimap
-  sam: proc/map/{dataset}.sam
-  sam_log: proc/map/{dataset}_minimap.log
-  map_stats: proc/map/{dataset}_map_stats.txt
-  sam_rev: proc/map/{dataset}_rev.sam
+    # minimap
+    sam: proc/map/{dataset}.sam
+    sam_log: proc/map/{dataset}_minimap.log
+    map_stats: proc/map/{dataset}_map_stats.txt
+    sam_rev: proc/map/{dataset}_rev.sam
+    sam_rev_stats: proc/map/{dataset}_rev_stats.txt
 
-  # transcriptclean
-  sam_clean: proc/tc/{dataset}_clean.sam
-  tc_log: proc/tc/{dataset}_stderr.log
-  tc_stats: proc/tc/{dataset}_tc_stats.txt
 
-  # add bam tag
-  sam_tag: proc/tag_bam/{dataset}_merged_primers.sam
+    # transcriptclean
+    sam_clean: proc/tc/{dataset}_clean.sam
+    tc_log: proc/tc/{dataset}_stderr.log
+    tc_stats: proc/tc/{dataset}_tc_stats.txt
 
-  # talon
-  sam_label: proc/talon/{dataset}_labeled.sam
-  demux_config: proc/talon/talon_config.csv
-  init_db: proc/talon/ref.db
-  demux_db: proc/talon/talon.db
-  filt_list: proc/talon/talon_filt_list.csv
-  adata: proc/talon/talon_adata.h5ad
+    # add bam tag
+    sam_tag: proc/tag_bam/{dataset}_merged_primers.sam
 
-  # db: proc/talon/talon.db
-  # config: proc/talon/talon_config.csv
+    # talon
+    sam_label: proc/talon/{dataset}_labeled.sam
+    demux_config: proc/talon/talon_config.csv
+    init_db: proc/talon/ref.db
+    demux_db: proc/talon/talon.db
+    filt_list: proc/talon/talon_filt_list.csv
+    adata: proc/talon/talon_adata.h5ad
+    g_adata: proc/talon/talon_gene_adata.h5ad
 
 # software
 lr_splitpipe: /dfs8/pub/freese//mortazavi_lab/bin/LR-splitpipe/LR-splitpipe/
