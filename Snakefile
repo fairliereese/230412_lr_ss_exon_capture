@@ -17,7 +17,7 @@ cols = ['fname', 'sample',
         'flowcell']
 for c in cols:
     df[c] = df[c].astype(str)
-    
+
 # subset the config df on dataset
 def get_df_dataset(dataset, df):
     return df.loc[df.dataset==dataset]
@@ -53,11 +53,13 @@ def get_df_dataset_flowcell_col(wc, df, col):
 #     vals = temp[col].tolist()
 #     return vals
 
-def get_sublib_bc_files(wc, df, config):
+def get_sublib_bc_files(wc, df, config, str=False):
     sublib_flowcells = get_df_dataset_col(wc, df, 'flowcell')
     bc_files = expand(config['proc']['demux_bc'],
                       dataset=wc.dataset,
                       flowcell=sublib_flowcells)
+    if str:
+        bc_files = ','.join(bc_files)
     return bc_files
 
 files = df['fname'].tolist()
@@ -80,18 +82,18 @@ rule all:
         config['proc']['adata'],
         config['proc']['g_adata']
 
-rule symlink:
-    resources:
-        mem_gb = 4,
-        threads = 1
-    shell:
-        "ln -s {params.fname} {output.out}"
-
-use rule symlink as sl_fastq with:
-    params:
-      fname = lambda wc:get_df_dataset_flowcell_col(wc, df, 'fname')
-    output:
-      out = config['proc']['fastq']
+# rule symlink:
+#     resources:
+#         mem_gb = 4,
+#         threads = 1
+#     shell:
+#         "ln -s {params.fname} {output.out}"
+#
+# use rule symlink as sl_fastq with:
+#     params:
+#       fname = lambda wc:get_df_dataset_flowcell_col(wc, df, 'fname')
+#     output:
+#       out = config['proc']['fastq']
 
 ################################################################################
 ############################# LR-Splitpipe #####################################
@@ -99,14 +101,15 @@ use rule symlink as sl_fastq with:
 
 
 # rule demux:
-#   input:
-#       fq = config['proc']['fastq']
+#   # input:
+#   #     fq = config['proc']['fastq']
 #   output:
 #       dx_fq = config['proc']['demux_fastq']
 #   resources:
 #       mem_gb = 32,
 #       threads = 4
 #   params:
+#       fname = lambda wc:get_df_dataset_flowcell_col(wc, df, 'fname'),
 #       d = config['lr_splitpipe'],
 #       opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0]
 #   shell: """python {params.d}demultiplex.py all \
@@ -125,19 +128,20 @@ use rule symlink as sl_fastq with:
 #   """
 
 rule demux_find_bcs:
-  input:
-      fq = config['proc']['fastq']
+  # input:
+  #     fq = config['proc']['fastq']
   output:
       bc = config['proc']['demux_bc']
   resources:
-      mem_gb = 32,
-      threads = 4
+      mem_gb = 128,
+      threads = 16
   params:
+      fname = lambda wc:get_df_dataset_flowcell_col(wc, df, 'fname'),
       d = config['lr_splitpipe'],
       opref = config['proc']['demux_bc'].rsplit('_bcs.tsv', maxsplit=1)[0]
   shell:
       """python {params.d}demultiplex.py find_bcs \
-          -f {input.fq} \
+          -f {params.fname} \
           -o {params.opref} \
           -t {resources.threads} \
           -k WT \
@@ -157,16 +161,16 @@ rule demux_proc_bcs:
     output:
         fq = config['proc']['demux_fastq']
     resources:
-        mem_gb = 32,
+        mem_gb = 64,
         threads = 4
     params:
         d = config['lr_splitpipe'],
         opref = config['proc']['demux_fastq'].rsplit('_demux.fastq', maxsplit=1)[0],
-        # fmt_bc_files = ','.join(lambda wc: get_sublib_bc_files(wc, df, config))
+        str_bc_files = lambda wc: get_sublib_bc_files(wc, df, config, str=True)
     shell:
         """
         python {params.d}demultiplex.py process_bcs \
-            -f {input.bc_files} \
+            -f {params.str_bc_files} \
             -o {params.opref} \
             -t {resources.threads} \
             -k WT \

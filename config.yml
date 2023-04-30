@@ -1,11 +1,11 @@
 ref:
-    # fa: /dfs8/pub/freese/mortazavi_lab/ref/mm10/mm10_sirv4.fasta
-    fa: /Users/fairliereese/mortazavi_lab/ref/hg38/hg38.fa
-    # gtf: /dfs8/pub/freese/mortazavi_lab/data/mousewg/refs/gencode_vM21.gtf
-    gtf: /Users/fairliereese/mortazavi_lab/refs/gencode.vM21/gencode.vM21.annotation.gtf
+    fa: /dfs8/pub/freese/mortazavi_lab/ref/mm10/mm10_sirv4.fasta
+    # fa: /Users/fairliereese/mortazavi_lab/ref/hg38/hg38.fa
+    gtf: /dfs8/pub/freese/mortazavi_lab/data/mousewg/refs/gencode_vM21.gtf
+    # gtf: /Users/fairliereese/mortazavi_lab/refs/gencode.vM21/gencode.vM21.annotation.gtf
 
 proc:
-    fastq: proc/{dataset}_{flowcell}.fastq.gz
+    # fastq: proc/{dataset}_{flowcell}.fastq.gz
 
     # demux
     demux_bc: proc/demux/{dataset}_{flowcell}_bcs.tsv

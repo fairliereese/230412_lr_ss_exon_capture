@@ -12,6 +12,7 @@ import scipy.stats as st
 import scipy
 # import swan_vis as swan
 import pdb
+import pysam
 
 def reverse_alignment(infile, outfile, threads=1):
 
