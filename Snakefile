@@ -63,9 +63,9 @@ def get_sublib_bc_files(wc, df, config, str=False):
     return bc_files
 
 files = df['fname'].tolist()
-samples = df['sample'].tolist()
-datasets = df['dataset'].tolist()
-platforms = df['platform'].tolist()
+samples = df['sample'].unique().tolist()
+datasets = df['dataset'].unique().tolist()
+platforms = df['platform'].unique().tolist()
 flowcells = df['flowcell'].tolist()
 
 wildcard_constraints:
