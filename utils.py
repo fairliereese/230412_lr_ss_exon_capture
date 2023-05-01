@@ -13,6 +13,42 @@ import scipy
 # import swan_vis as swan
 import pdb
 import pysam
+import re
+
+def parse_config_file(fname, auto_dedupe=True):
+    df = pd.read_csv(fname, sep='\t')
+
+    # get flowcell
+    exp = '.*\/[\w-]+_(\d+)(?:_t\d+)?\.fastq(?:.gz)?'
+    df['flowcell'] = df.fname.str.extract(exp)
+
+    # get dataset
+    exp = '.*\/[\w-]+_(\d+[ABCDEFGH])[\w-]+\d+(?:_t\d+)?\.fastq(?:.gz)?'
+    df['dataset'] = df.fname.str.extract(exp)
+
+
+    # check to make sure the same file stem isn't there more than once
+    # (can happen if different flow cells needed different amounts of chopping)
+    # df['file_stem'] = df.basename.str.rsplit('_', n=1, expand=True)[0]
+    exp = '.*\/([\w-]+_\d+)(?:_t\d+)?\.fastq(?:.gz)?'
+    df['file_stem'] = df.fname.str.extract(exp)
+    df['chop_num'] = df.basename.str.rsplit('.fastq', expand=True)[0].str.rsplit('_t', expand=True)[1].astype(float)
+    if df.file_stem.duplicated().any():
+        dupe_stems = df.loc[df.file_stem.duplicated(keep=False), 'basename'].tolist()
+        if not auto_dedupe:
+            raise ValueError(f'Files {dupe_stems} seem to be duplicated. Check config file.')
+        else:
+            print(f'Files {dupe_stems} seem to be duplicated. Automatically removing lower chop numbers')
+            df = df.sort_values(by='chop_num', ascending=False)
+            df = df.drop_duplicates(subset='file_stem', keep='first')
+
+    cols = ['fname', 'sample',
+            'dataset', 'platform',
+            'flowcell']
+    for c in cols:
+        df[c] = df[c].astype(str)
+
+    return df
 
 def reverse_alignment(infile, outfile, threads=1):
 

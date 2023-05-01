@@ -10,13 +10,10 @@ sys.path.append(p)
 from utils import *
 
 configfile: 'config.yml'
+config_tsv = '230427_config.tsv'
+auto_dedupe = True
 
-df = pd.read_csv('230427_config.tsv', sep='\t')
-cols = ['fname', 'sample',
-        'dataset', 'platform',
-        'flowcell']
-for c in cols:
-    df[c] = df[c].astype(str)
+df = parse_config_file(config_tsv, auto_dedupe=auto_dedupe)
 
 # subset the config df on dataset
 def get_df_dataset(dataset, df):
@@ -410,7 +407,7 @@ rule talon_cb_config:
 rule talon_cb:
     resources:
         threads = 16,
-        mem_gb = 128
+        mem_gb = 360
     shell:
         """
         # copy the input db so that a copy of it will remain unmodified
