@@ -28,12 +28,20 @@ def get_df_flowcell(flowcell, df):
 
 # get a 1:1 value for dataset:<col> from config
 def get_df_dataset_val(wc, df, col):
-    temp = get_df_dataset(wc.dataset, df)
+    try:
+        dataset = wc.dataset
+    except:
+        dataset = wc
+    temp = get_df_dataset(dataset, df)
     return temp[col].values[0]
 
 # get a 1:many value (ie dataset:flowcell, dataset:fname) from config
 def get_df_dataset_col(wc, df, col):
-    temp = get_df_dataset(wc.dataset, df)
+    try:
+        dataset = wc.dataset
+    except:
+        dataset = wc
+    temp = get_df_dataset(dataset, df)
     return temp[col].tolist()
 
 # get a 1:1 value from flowcell,dataset:<col>
@@ -375,15 +383,28 @@ rule talon_cb_config:
         threads = 1,
         mem_gb = 1
     params:
-        samples = samples,
-        platforms = platforms
+        # samples = samples,
+        # platforms = platforms
+        # df = df
+        # samples = lambda wc:get_df_dataset_val(wc, df, 'sample'),
+        # platforms = lambda wc:get_df_dataset_val(wc, df, 'platform')
+        datasets = datasets
     output:
         talon_config = config['proc']['demux_config']
     run:
-        dumb = [[s,p,f] for s,p,f in zip(params.samples,
-                                         params.platforms,
-                                         input.sam_files)]
-        cfg_df = pd.DataFrame(data=dumb)
+        # dumb = [[s,p,f] for s,p,f in zip(params.samples,
+        #                                  params.platforms,
+        #                                  input.sam_files)]
+        # cfg_df = pd.DataFrame(data=dumb)
+        samples = []
+        platforms = []
+        for d in datasets:
+            samples.append(get_df_dataset_val(d, df, 'sample'))
+            platforms.append(get_df_dataset_val(d, df, 'platform'))
+        zipped = [[s,p,f] for s,p,f in zip(samples,
+                                           platforms,
+                                           input.sam_files)]
+        cfg_df = pd.DataFrame(data=zipped)
         cfg_df.to_csv(output.talon_config, sep=',', index=False, header=None)
 
 rule talon_cb:
