@@ -14,7 +14,7 @@ import pylab as pl
 import matplotlib.ticker as tck
 from collections import defaultdict
 
-from .utils import *
+# from .utils import *
 
 def get_lr_bulk_sample_colors():
     c_dict, order = get_tissue_age_colors()
